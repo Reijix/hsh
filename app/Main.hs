@@ -2,7 +2,6 @@ module Main where
 
 import System.Directory
 import System.IO
-import System.Posix.Process
 import System.Process
 
 -- entry point

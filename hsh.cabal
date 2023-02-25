@@ -29,6 +29,6 @@ executable hsh
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     ghc-options:      -threaded
-    build-depends:    base ^>=4.16.4.0, directory, process, unix
+    build-depends:    base ^>=4.16.4.0, directory, process
     hs-source-dirs:   app
     default-language: Haskell2010
