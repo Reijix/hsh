@@ -3,9 +3,9 @@ module Main where
 import Control.Monad.State
 import Data.Maybe (fromMaybe)
 import System.Directory
+import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 import System.IO
 import System.Process
-import System.Process.Internals (ProcessHandle (ProcessHandle))
 
 data ShellState = ShellState
   { history :: [String],
@@ -42,7 +42,7 @@ jobs [] = do
       putStrLn $ show pid ++ ": " ++ cmdLine
 jobs _ = liftIO $ putStrLn "Usage: jobs"
 
--- splits a string on a given delimeter (on each occurrence of delim)
+-- parses the input, splitting it on a delimiter and checking whether it ends with &
 parse :: Char -> [Char] -> ([[Char]], Bool)
 parse delim xs = splitHelper delim xs []
   where
@@ -74,6 +74,9 @@ executeProgramBackground (prog : args) = do
   (_, _, _, childHandle) <- liftIO $ createProcess cp
   procs <- gets processes
   modify (\state -> state {processes = (childHandle, unwords (prog : args)) : procs})
+  pidM <- liftIO $ getPid childHandle
+  let pid = fromMaybe (-1) pidM
+  liftIO $ putStrLn $ "pid: " ++ show pid
   where
     cp = proc prog args
 
@@ -99,6 +102,7 @@ printCwd = do
   liftIO $ putStr $ cwd ++ " > "
   liftIO $ hFlush stdout
 
+-- iterates over all jobs and collects finished ones, removing them from the list and printing their exitcode
 checkJobs :: ShellMonad ()
 checkJobs = do
   jobs <- gets processes
@@ -110,4 +114,9 @@ checkJobs = do
       ecM <- getProcessExitCode proc
       case ecM of
         Nothing -> return True
-        Just exitCode -> putStrLn ("[" ++ cmdline ++ "] exited with code " ++ show exitCode) >> return False
+        Just exitCode -> putStrLn ("[" ++ cmdline ++ "] exited with code " ++ showExitCode exitCode) >> return False
+
+-- pretty printing exitcodes
+showExitCode :: ExitCode -> String
+showExitCode ExitSuccess = "0"
+showExitCode (ExitFailure code) = show code
