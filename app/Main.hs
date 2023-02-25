@@ -5,16 +5,29 @@ import System.IO
 import System.Posix.Process
 import System.Process
 
+-- entry point
 main :: IO ()
 main = do
   putStrLn "Welcome to the Haskell SHell!"
-  interactWithCwd echo
+  interactWithCwd runner
 
-echo :: String -> IO String
-echo str = do
-  out <- executeProgram (ownSplit ' ' str)
-  return ""
+-- commands
+cd :: [String] -> IO ()
+cd [dir] = setCurrentDirectory dir
+cd _ = putStrLn "Usage: cd <path>"
 
+-- handles a single line from stdin
+-- it checks whether we should execute an inbuilt function like 'cd'
+-- or a normal program like 'ls'
+runner :: String -> IO ()
+runner str = dispatch (ownSplit ' ' str)
+  where
+    dispatch :: [String] -> IO ()
+    dispatch [] = return ()
+    dispatch ("cd" : args) = cd args
+    dispatch xs = executeProgram xs
+
+-- splits a string on a given delimeter (on each occurrence of delim)
 ownSplit :: Char -> [Char] -> [[Char]]
 ownSplit delim xs = splitHelper delim xs []
   where
@@ -25,6 +38,7 @@ ownSplit delim xs = splitHelper delim xs []
     splitHelper delim (x : xs) drag | delim == x = drag : splitHelper delim xs []
     splitHelper delim (x : xs) drag = splitHelper delim xs (drag ++ [x])
 
+-- executes a program, takes in the whole commandline (including the programs name at cmdline[0])
 executeProgram :: [String] -> IO ()
 executeProgram [] = return ()
 executeProgram (prog : args) = do
@@ -34,14 +48,11 @@ executeProgram (prog : args) = do
   where
     cp = proc prog args
 
-interactWithCwd :: (String -> IO String) -> IO ()
-interactWithCwd fun = do
-  printCwd
-  line <- getLine
-  out <- fun line
-  hFlush stdout
-  interactWithCwd fun
+-- like preludes 'interact' but prints the CWD and takes a function that does IO itself
+interactWithCwd :: (String -> IO ()) -> IO ()
+interactWithCwd fun = printCwd >> getLine >>= fun >> interactWithCwd fun
 
+-- prints the CWD in shell typical format
 printCwd :: IO ()
 printCwd = do
   cwd <- getCurrentDirectory
